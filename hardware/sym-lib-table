@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 0)
+  (lib (name "schematic_esp8266_basic-eagle-import")(type "KiCad")(uri "${KIPRJMOD}/schematic_esp8266_basic-eagle-import.kicad_sym")(options "")(descr ""))
+)
