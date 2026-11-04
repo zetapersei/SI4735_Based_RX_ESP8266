@@ -34,158 +34,155 @@
 
 #include <SI4735.h>
 
-#define RESET_PIN 2           // (GPIO02)
-
-// I2C bus pin on ESP32
-#define ESP32_I2C_SDA 4       // (GPIO04)
-#define ESP32_I2C_SCL 5       // (GPIO05)
-
+#define RESET_PIN 2          // GPIO2
+#define ESP32_I2C_SDA 4       // GPIO4
+#define ESP32_I2C_SCL 5       // GPIO5
 #define AM_FUNCTION 1
 #define FM_FUNCTION 0
+#define BANDWIDTH_COUNT 7
 
-uint16_t currentFrequency;
-uint16_t previousFrequency;
+uint16_t currentFrequency = 0;
+uint16_t previousFrequency = 0;
 uint8_t bandwidthIdx = 0;
-const char *bandwidth[] = {"6", "4", "3", "2", "1", "1.8", "2.5"};
+const char *const bandwidth[] = {"6", "4", "3", "2", "1", "1.8", "2.5"};
 
 SI4735 si4735;
 
 void showHelp()
 {
-  Serial.println("Type F to FM; A to MW; L to LW; and 1 to SW");
-  Serial.println("Type U to increase and D to decrease the frequency");
-  Serial.println("Type S or s to seek station Up or Down");
-  Serial.println("Type + or - to volume Up or Down");
-  Serial.println("Type 0 to show current status");
-  Serial.println("Type B to change Bandwidth filter");
-  Serial.println("Type ? to this help.");
-  Serial.println("==================================================");
+  Serial.println(F("Type F to FM; A to MW; L to LW; and 1 to SW"));
+  Serial.println(F("Type U to increase and D to decrease the frequency"));
+  Serial.println(F("Type S or s to seek station Up or Down"));
+  Serial.println(F("Type + or - to volume Up or Down"));
+  Serial.println(F("Type 0 to show current status"));
+  Serial.println(F("Type B to change Bandwidth filter"));
+  Serial.println(F("Type ? to this help."));
+  Serial.println(F("=================================================="));
   delay(1000);
 }
 
-// Show current frequency
 void showStatus()
 {
   si4735.getStatus();
   si4735.getCurrentReceivedSignalQuality();
-  Serial.print("You are tuned on ");
+
+  char buffer[80];
   if (si4735.isCurrentTuneFM())
   {
-    Serial.print(String(currentFrequency / 100.0, 2));
-    Serial.print("MHz ");
-    Serial.print((si4735.getCurrentPilot()) ? "STEREO" : "MONO");
+    snprintf(buffer, sizeof(buffer),
+             "You are tuned on %.2fMHz %s [SNR:%ddB Signal:%ddBuV]",
+             currentFrequency / 100.0f,
+             (si4735.getCurrentPilot()) ? "STEREO" : "MONO",
+             si4735.getCurrentSNR(),
+             si4735.getCurrentRSSI());
   }
   else
   {
-    Serial.print(currentFrequency);
-    Serial.print("kHz");
+    snprintf(buffer, sizeof(buffer),
+             "You are tuned on %u kHz [SNR:%ddB Signal:%ddBuV]",
+             currentFrequency,
+             si4735.getCurrentSNR(),
+             si4735.getCurrentRSSI());
   }
-  Serial.print(" [SNR:");
-  Serial.print(si4735.getCurrentSNR());
-  Serial.print("dB");
 
-  Serial.print(" Signal:");
-  Serial.print(si4735.getCurrentRSSI());
-  Serial.println("dBuV]");
+  Serial.println(buffer);
   Serial.flush();
 }
 
 void setup()
 {
   Serial.begin(115200);
-  while(!Serial);
+  while (!Serial)
+    ;
   delay(1000);
 
   digitalWrite(RESET_PIN, HIGH);
-  Serial.println("AM and FM station tuning test.");
-
+  Serial.println(F("AM and FM station tuning test."));
   showHelp();
-  
 
-  // The line below may be necessary to setup I2C pins on ESP32
   Wire.begin(ESP32_I2C_SDA, ESP32_I2C_SCL);
-
-  // Gets the current SI473X I2C address 
-  int si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
+  si4735.getDeviceI2CAddress(RESET_PIN);
   si4735.setup(RESET_PIN, FM_FUNCTION);
   delay(300);
-  // Starts defaul radio function and band (FM; from 84 to 108 MHz; 103.9 MHz; step 100kHz)
+
   si4735.setFM(8400, 10800, 10390, 10);
   currentFrequency = previousFrequency = si4735.getFrequency();
   si4735.setVolume(45);
   showStatus();
 }
 
-// Main
 void loop()
 {
   if (Serial.available() > 0)
   {
-    char key = Serial.read();
+    const char key = Serial.read();
     switch (key)
     {
-    case '+':
-      si4735.volumeUp();
-      break;
-    case '-':
-      si4735.volumeDown();
-      break;
-    case 'a':
-    case 'A':
-      si4735.setAM(570, 1710, 810, 10);
-      break;
-    case 'f':
-    case 'F':
-      si4735.setFM(8600, 10800, 10390, 10);
-      break;
-    case '1':
-      si4735.setAM(9400, 9990, 9600, 5);
-      break;
-    case 'U':
-    case 'u':
-      si4735.frequencyUp();
-      break;
-    case 'D':
-    case 'd':
-      si4735.frequencyDown();
-      break;
-    case 'b':
-    case 'B':
-      if (si4735.isCurrentTuneFM())
-      {
-        Serial.println("Not valid for FM");
-      }
-      else
-      {
-        if (bandwidthIdx > 6)
-          bandwidthIdx = 0;
-        si4735.setBandwidth(bandwidthIdx, 1);
-        Serial.print("Filter - Bandwidth: ");
-        Serial.print(String(bandwidth[bandwidthIdx]));
-        Serial.println(" kHz");
-        bandwidthIdx++;
-      }
-      break;
-    case 'S':
-      si4735.seekStationUp();
-      break;
-    case 's':
-      si4735.seekStationDown();
-      break;
-    case '0':
-      showStatus();
-      break;
-    case '?':
-      showHelp();
-      break;
-    default:
-      break;
+      case '+':
+        si4735.volumeUp();
+        break;
+      case '-':
+        si4735.volumeDown();
+        break;
+      case 'a':
+      case 'A':
+        si4735.setAM(570, 1710, 810, 10);
+        break;
+      case 'f':
+      case 'F':
+        si4735.setFM(8600, 10800, 10390, 10);
+        break;
+      case '1':
+        si4735.setAM(9400, 9990, 9600, 5);
+        break;
+      case 'u':
+      case 'U':
+        si4735.frequencyUp();
+        break;
+      case 'd':
+      case 'D':
+        si4735.frequencyDown();
+        break;
+      case 'b':
+      case 'B':
+        if (si4735.isCurrentTuneFM())
+        {
+          Serial.println(F("Not valid for FM"));
+        }
+        else
+        {
+          if (bandwidthIdx >= BANDWIDTH_COUNT)
+            bandwidthIdx = 0;
+
+          si4735.setBandwidth(bandwidthIdx, 1);
+          Serial.print(F("Filter - Bandwidth: "));
+          Serial.print(bandwidth[bandwidthIdx]);
+          Serial.println(F(" kHz"));
+          bandwidthIdx++;
+        }
+        break;
+      case 'S':
+        si4735.seekStationUp();
+        break;
+      case 's':
+        si4735.seekStationDown();
+        break;
+      case '0':
+        showStatus();
+        break;
+      case '?':
+        showHelp();
+        break;
+      default:
+        break;
     }
   }
-  currentFrequency = si4735.getCurrentFrequency();
-  if (currentFrequency != previousFrequency)
+
+  const uint16_t nextFrequency = si4735.getCurrentFrequency();
+  if (nextFrequency != previousFrequency)
   {
-    previousFrequency = currentFrequency;
+    previousFrequency = nextFrequency;
+    currentFrequency = nextFrequency;
     showStatus();
     delay(300);
   }

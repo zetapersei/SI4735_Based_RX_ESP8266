@@ -85,8 +85,8 @@ const uint16_t size_content = sizeof ssb_patch_content; // see patch_init.h
 #define STORE_TIME 10000 // Time of inactivity to make the current receiver status writable (10s / 10000 milliseconds).
 
 // EEPROM - Stroring control variables
-const uint8_t app_id = 47; // Useful to check the EEPROM content before processing useful data
-const int eeprom_address = 0;
+constexpr uint8_t APP_ID = 47; // Useful to check the EEPROM content before processing useful data
+constexpr int EEPROM_ADDRESS = 0;
 long storeTime = millis();
 
 bool itIsTimeToSave = false;
@@ -288,7 +288,7 @@ void setup()
   // If you want to reset the eeprom, keep the VOLUME_UP button pressed during statup
   if (digitalRead(ENCODER_PUSH_BUTTON) == LOW)
   {
-    EEPROM.write(eeprom_address, 0);
+    EEPROM.write(EEPROM_ADDRESS, 0);
     EEPROM.commit();
     print(0, 0, NULL, 2, "EEPROM RESETED");
     delay(3000);
@@ -313,7 +313,7 @@ void setup()
   delay(300);
 
   // Checking the EEPROM content
-  if (EEPROM.read(eeprom_address) == app_id)
+  if (EEPROM.read(EEPROM_ADDRESS) == APP_ID)
   {
     readAllReceiverInformation();
   } else 
@@ -350,14 +350,13 @@ void saveAllReceiverInformation()
 
   EEPROM.begin(EEPROM_SIZE);
 
-  EEPROM.write(eeprom_address, app_id);                 // stores the app id;
-  EEPROM.write(eeprom_address + 1, rx.getVolume()); // stores the current Volume
-  EEPROM.write(eeprom_address + 2, bandIdx);            // Stores the current band
-  EEPROM.write(eeprom_address + 3, fmRDS);
-  EEPROM.write(eeprom_address + 4, currentMode); // Stores the current Mode (FM / AM / SSB)
-  EEPROM.write(eeprom_address + 5, currentBFO >> 8);
-  EEPROM.write(eeprom_address + 6, currentBFO & 0XFF);
-  EEPROM.commit();
+  EEPROM.write(EEPROM_ADDRESS, APP_ID);                 // stores the app id;
+  EEPROM.write(EEPROM_ADDRESS + 1, rx.getVolume()); // stores the current Volume
+  EEPROM.write(EEPROM_ADDRESS + 2, bandIdx);            // Stores the current band
+  EEPROM.write(EEPROM_ADDRESS + 3, fmRDS);
+  EEPROM.write(EEPROM_ADDRESS + 4, currentMode); // Stores the current Mode (FM / AM / SSB)
+  EEPROM.write(EEPROM_ADDRESS + 5, currentBFO >> 8);
+  EEPROM.write(EEPROM_ADDRESS + 6, currentBFO & 0XFF);
 
   addr_offset = 7;
   band[bandIdx].currentFreq = currentFrequency;
@@ -368,9 +367,9 @@ void saveAllReceiverInformation()
     EEPROM.write(addr_offset++, (band[i].currentFreq & 0xFF)); // stores the current Frequency LOW byte for the band
     EEPROM.write(addr_offset++, band[i].currentStepIdx);       // Stores current step of the band
     EEPROM.write(addr_offset++, band[i].bandwidthIdx);         // table index (direct position) of bandwidth
-    EEPROM.commit();
   }
 
+  EEPROM.commit();
   EEPROM.end();
 }
 
@@ -384,12 +383,12 @@ void readAllReceiverInformation()
   int bwIdx;
   EEPROM.begin(EEPROM_SIZE);
 
-  volume = EEPROM.read(eeprom_address + 1); // Gets the stored volume;
-  bandIdx = EEPROM.read(eeprom_address + 2);
-  fmRDS = EEPROM.read(eeprom_address + 3);
-  currentMode = EEPROM.read(eeprom_address + 4);
-  currentBFO = EEPROM.read(eeprom_address + 5) << 8;
-  currentBFO |= EEPROM.read(eeprom_address + 6);
+  volume = EEPROM.read(EEPROM_ADDRESS + 1); // Gets the stored volume;
+  bandIdx = EEPROM.read(EEPROM_ADDRESS + 2);
+  fmRDS = EEPROM.read(EEPROM_ADDRESS + 3);
+  currentMode = EEPROM.read(EEPROM_ADDRESS + 4);
+  currentBFO = EEPROM.read(EEPROM_ADDRESS + 5) << 8;
+  currentBFO |= EEPROM.read(EEPROM_ADDRESS + 6);
 
   addr_offset = 7;
   for (int i = 0; i <= lastBand; i++)
@@ -1033,7 +1032,7 @@ void doCurrentMenuCmd() {
  * Return true if the current status is Menu command
  */
 bool isMenuMode() {
-  return (cmdMenu | cmdStep | cmdBandwidth | cmdAgc | cmdVolume | cmdSoftMuteMaxAtt | cmdMode);
+  return (cmdMenu || cmdStep || cmdBandwidth || cmdAgc || cmdVolume || cmdSoftMuteMaxAtt || cmdMode);
 }
 
 /**
@@ -1044,7 +1043,7 @@ void loop()
   // Check if the encoder has moved.
   if (encoderCount != 0)
   {
-    if (bfoOn & (currentMode == LSB || currentMode == USB))
+    if (bfoOn && (currentMode == LSB || currentMode == USB))
     {
       currentBFO = (encoderCount == 1) ? (currentBFO + currentBFOStep) : (currentBFO - currentBFOStep);
       rx.setSSBBfo(currentBFO);
